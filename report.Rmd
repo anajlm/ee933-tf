@@ -219,6 +219,9 @@ library(dplyr)
 # Transformar Percentual de Ruído em fator (se ainda não estiver)
 dados$percentualRuidoTreinamento <- as.factor(dados$percentualRuidoTreinamento)
 
+
+pdf("./figs/ggplot.pdf", width = 5, height = 5) # <-- uncomment to save plot
+
 # Gráfico de linhas para visualizar o impacto do ruído na acurácia
 ggplot(dados, aes(x = percentualRuidoTreinamento, y = acuracia, color = Algoritmo, group = Algoritmo)) +
   geom_line() +
@@ -227,6 +230,9 @@ ggplot(dados, aes(x = percentualRuidoTreinamento, y = acuracia, color = Algoritm
        x = "Percentual de Ruído no Treinamento",
        y = "Acurácia Média") +
   theme_minimal()
+
+dev.off() # <-- uncomment this if you uncommented the pdf() command above
+
 ```
 
 A análise gráfica indica que a Configuração X apresenta
