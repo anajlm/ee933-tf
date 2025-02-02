@@ -121,7 +121,7 @@ library(readr)
 library(stringr)
 
 # Definir o diretório onde os arquivos estão localizados
-diretorio <- "resultados/"  # Substitua pelo caminho correto
+diretorio <- "resultados/Piloto2/"  # Substitua pelo caminho correto
 
 # Listar todos os arquivos CSV no diretório
 arquivos <- list.files(path = diretorio, pattern = "*teste.csv", full.names = TRUE)
