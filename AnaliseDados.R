@@ -5,46 +5,22 @@ library(stringr)
 library(ggplot2)
 
 
-#rm(list = ls())
-# Leitua Inicial dos arquivos ##################################################
-# Definir o diretório onde os arquivos estão localizados
-diretorio <- "resultados/"  # Substitua pelo caminho correto
-
-# Listar todos os arquivos CSV no diretório
-file <- read.csv("resultados/Experimento_Breast_piloto.csv",
-                     header=TRUE, stringsAsFactors=FALSE)
-
-
-niveisDeRuido=unique(file$Noise.Level)
-algoritmos=unique(file$Classifier)
-repeticoes=unique(file$IndexRep)
-
-df_summary <- file %>%
-  group_by(Classifier, IndexRep) %>%
-  summarise(Mean_Accuracy = mean(Accuracy, na.rm = TRUE))
-
-# View the summary
-print(df_summary)
-
-file <- file %>% dplyr::select(Classifier, X, Accuracy, Noise.Level)%>% 
-  arrange(Classifier) 
-dadosArquivo <- file %>%rename(Algoritmo = Classifier,
-                               X = X,
-                               acuracia = Accuracy,
-                               percentualRuidoTreinamento = `Noise.Level`)
-
-# Verificar os dados carregados
-str(dadosArquivo)
-head(dadosArquivo)
+file <- read.csv("estudo_piloto/resultados/estudo_piloto.csv",
+                     header=TRUE)
+data <- file %>%rename(Algoritmo = Classifier,
+                       X = X,
+                       acuracia = Accuracy,
+                       percentualRuidoTreinamento = `Noise.Level`)
+head(data)
 
 # Gráfico ##################################################
-# Transformar Percentual de Ruído em fator (se ainda não estiver)
-dadosArquivo$percentualRuidoTreinamento <- as.factor(dadosArquivo$percentualRuidoTreinamento)
+# Transformar Percentual de Ruído em fator
+data$percentualRuidoTreinamento <- as.factor(data$percentualRuidoTreinamento)
 
 # Agregar os dados: média da acurácia por algoritmo e nível de ruído
-aggdata <- aggregate(x = dadosArquivo$acuracia, 
-                     by = list(Algoritmo = dadosArquivo$Algoritmo, 
-                               percentualRuidoTreinamento = dadosArquivo$percentualRuidoTreinamento), 
+aggdata <- aggregate(x = data$acuracia, 
+                     by = list(Algoritmo = data$Algoritmo, 
+                               percentualRuidoTreinamento = data$percentualRuidoTreinamento), 
                      FUN = mean)
 
 # Rename columns
