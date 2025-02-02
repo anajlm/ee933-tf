@@ -12,11 +12,14 @@ file <- read.csv("resultados/Experimento_Breast_piloto.csv",
 
 niveisDeRuido=unique(file$Noise.Level)
 algoritmos=unique(file$Classifier)
+repeticoes=unique(file$IndexRep)
 
-for (i in 1:nrow(dados1)) {
-  
-  
-}
+df_summary <- file %>%
+  group_by(Classifier, IndexRep) %>%
+  summarise(Mean_Accuracy = mean(Accuracy, na.rm = TRUE))
+
+# View the summary
+print(df_summary)
 
 
 # Função para extrair o nome do algoritmo do nome do arquivo
