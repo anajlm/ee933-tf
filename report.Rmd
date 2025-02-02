@@ -50,6 +50,7 @@ em que $N$ é o número de instâncias necessárias.
 Assumindo uma medida de relevância mínima  $d^* = |\delta^*| / \sigma_{\Phi}$, o poder do teste $\pi^*$ é dado pela integral da distribuição t não central com $ncp^* = d^* \sqrt{N}$ sobre os valores de $t_0$ para os quais a hipótese nula $H_0$ é rejeitada (Campelo et. al., 2019):
 
 $$\pi^* = 1 - \beta^* = 1 - \int_{t = t^{(N-1)}_{\alpha/2}}^{t^{(N-1)}_{1-\alpha/2}} \left[ t^{(N-1)}_{\,|\, \text{ncp}^*|} \right] dt$$
+
 Finalmente, o número de instâncias pode ser calculado como o menor inteiro $N$ tal que o poder do teste $\pi^*$ seja igual ou maior que o poder desejado. No caso da hipótese alternativa unilateral, temos que:
 
 $$N^* = \min N \, \bigg| \, t^{(N-1)}_{1-\alpha} \leq t^{(N-1)}_{\beta^* \, ; \, |\text{ncp}^*|}$$
@@ -151,40 +152,84 @@ head(dados)
 ```
 
 
+```{r dataplot,fig.width=8,echo=TRUE,message=FALSE,label="dataplot",fig.cap="Desempenho médio dos algoritmos por nível de ruído"}
+# Carregar bibliotecas
+library(ggplot2)
+library(dplyr)
+
+# Transformar Percentual de Ruído em fator (se ainda não estiver)
+dados$percentualRuidoTreinamento <- as.factor(dados$percentualRuidoTreinamento)
+
+# Agregar os dados: média da acurácia por algoritmo e nível de ruído
+aggdata <- aggregate(x = dados$acuracia, 
+                     by = list(Algoritmo = dados$Algoritmo, 
+                               percentualRuidoTreinamento = dados$percentualRuidoTreinamento), 
+                     FUN = mean)
+
+# Rename columns
+names(aggdata) <- c("Algoritmo", 
+                    "Percentual_Ruido_Treinamento",
+                    "Acuracia_Media")
+
+# Coerce categorical variables to factors
+for (i in 1:2){
+      aggdata[, i] <- as.factor(aggdata[, i])
+}
+
+#pdf("./figs/ggplot_piloto.pdf", width = 5, height = 5) # <-- uncomment to save plot
+
+# Gráfico de linhas para visualizar o impacto do ruído na acurácia
+p <- ggplot(aggdata, aes(x = Percentual_Ruido_Treinamento, 
+                         y = Acuracia_Media, 
+                         group = Algoritmo, 
+                         colour = Algoritmo))
+p <- p + geom_line(linetype=2) + geom_point(size=5)
+p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
+          x = "Percentual de Ruído no Treinamento",
+          y = "Acurácia Média")
+
+#dev.off() # <-- uncomment this if you uncommented the pdf() command above
+
+```
+
+
+
 ```{r repeticoes2,message=FALSE}
 alpha <- 0.05 # nível de significância
 d <- 0.5
-a <- 2 # Niveis do fator
+a <- length(unique(aggdata$Algoritmo))  # Número de algoritmos
 n_max <- 100 # Número máximo de epetições por instância
 
 # Dataframe para armazenar os resultados
+# Criar dataframe para armazenar os resultados
 repeticoes <- data.frame(
-  Dimensao = integer(),
+  Algoritmo = character(),
   Repeticoes = integer(),
   Poder = numeric()
 )
 
-for (dim in dimensoes) {
-  # Calcula n para cada dimensão para atingir poder >= 0.8
+for (ruido in unique(aggdata$PercentualRuidoTreinamento)) {
+  # Calcula n para cada instância para atingir poder >= 0.8
   n <- 2
   power <- 0
-  sd <- estatisticas_piloto_df$DesvioPadrao[estatisticas_piloto_df$Dimensao == dim]
+  
+  # Obter desvio padrão da acurácia média nos algoritmos para esse nível de ruído
+  sd <- sd(aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido])
 
   while (power < 0.8)
   {
     df1 <- a - 1 # Graus de liberdade do numerador
     df2 <- a * (n - 1) # Graus de liberdade do denominador
     
-    # Calcula as médias observadas para a dimensão atual
-    mu_config1 <- mean(estudo_piloto$Fbest[estudo_piloto$Dimensao == dim &
-                                           estudo_piloto$Configuracao == "Config1"])
-    mu_config2 <- mean(estudo_piloto$Fbest[estudo_piloto$Dimensao == dim &
-                                           estudo_piloto$Configuracao == "Config2"])
-    # Média global
-    mu <- mean(c(mu_config1, mu_config2))
+    # Calcular a média da acurácia para cada algoritmo
+    mu_algoritmo <- tapply(aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido],
+                            aggdata$Algoritmo, mean)
+     
+    # Média global da acurácia nesse nível de ruído
+    mu_global <- mean(mu_algoritmo)
 
     # Calcula o NCP
-    ncp <- (n*((mu_config1 - mu)^2 + (mu_config2 - mu)^2)) / (sd^2)
+    ncp <- (n * sum((mu_algoritmo - mu_global)^2)) / (sd^2)
 
     F.crit <- qf(alpha, df1, df2, lower.tail = FALSE)
 
@@ -195,10 +240,14 @@ for (dim in dimensoes) {
     } else {
       n = n + 1
     }
+    
+    # Armazenar resultados
+    repeticoes <- rbind(repeticoes, 
+                      data.frame(PercentualRuidoTreinamento = ruido, 
+                                 Repeticoes = n, 
+                                 Poder = power))
   }
-
-  # Armazena os resultados no dataframe
-  repeticoes <- rbind(repeticoes, data.frame(Dimensao = dim, Repeticoes = n, Poder = power))
+  
   # Salvar resultados em um arquivo CSV
   write.csv(repeticoes, "repeticoes.csv", row.names = FALSE)
 
@@ -210,6 +259,41 @@ for (dim in dimensoes) {
 
 Antes de realizar os testes de hipótese, foi realizada uma análise exploratória para obter uma visão geral dos dados. A Figura @ref(fig:dataplot) fornece um gráfico para comparar o desempenho médio das duas configuração por dimensão.
 
+```{r carregamentoDadosExperimento,message=FALSE}
+# Carregar bibliotecas necessárias
+library(dplyr)
+library(readr)
+library(stringr)
+
+# Definir o diretório onde os arquivos estão localizados
+diretorio <- "resultados/Experimento/"  # Substitua pelo caminho correto
+
+# Listar todos os arquivos CSV no diretório
+arquivos <- list.files(path = diretorio, pattern = "*teste.csv", full.names = TRUE)
+
+# Função para extrair o nome do algoritmo do nome do arquivo
+extrair_algoritmo <- function(nome_arquivo) {
+  # Remove o caminho e mantém apenas o nome do arquivo
+  nome_limpo <- basename(nome_arquivo)
+  # Extrai o algoritmo baseado no padrão do nome do arquivo
+  algoritmo <- str_extract(nome_limpo, "MLP|RF|SVM|XGB")
+  return(algoritmo)
+}
+
+# Ler e combinar os arquivos em um único dataframe, adicionando a coluna "Algoritmo"
+dados <- lapply(arquivos, function(arquivo) {
+  df <- read.csv(arquivo)
+  df$Algoritmo <- extrair_algoritmo(arquivo)  # Adiciona a coluna Algoritmo
+  df <- df[, c("Algoritmo", setdiff(names(df), "Algoritmo"))]  # Reorganiza as colunas
+  return(df)
+}) %>%
+  bind_rows()
+
+# Verificar os dados carregados
+str(dados)
+head(dados)
+
+```
 
 ```{r dataplot,fig.width=8,echo=TRUE,message=FALSE,label="dataplot",fig.cap="Desempenho médio dos algoritmos por nível de ruído"}
 # Carregar bibliotecas
@@ -235,7 +319,7 @@ for (i in 1:2){
       aggdata[, i] <- as.factor(aggdata[, i])
 }
 
-#pdf("./figs/ggplot.pdf", width = 5, height = 5) # <-- uncomment to save plot
+#pdf("./figs/ggplot_experimento.pdf", width = 5, height = 5) # <-- uncomment to save plot
 
 # Gráfico de linhas para visualizar o impacto do ruído na acurácia
 p <- ggplot(aggdata, aes(x = Percentual_Ruido_Treinamento, 
@@ -254,12 +338,11 @@ p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
 
 ## 4. Análise Estatística
 
-Para validar nossas observações iniciais, realizamos um teste RCBD para avaliar as diferenças no desempenho das duas configurações.
+Para validar nossas observações iniciais, realizamos um teste ANOVA para avaliar as diferenças no desempenho dos algoritmos.
 
 ```{r fitmodel,results='hold'}
-model <- aov(Y~Configuracao+Dimensao, data=aggdata)
+model <- aov(Acuracia_Media ~ Algoritmo + Percentual_Ruido_Treinamento, data = aggdata)
 summary(model)
-summary.lm(model)$r.squared
 ```
 
 A Figura @ref(modelplot) mostra o modelo resultante do teste estatístico.
@@ -269,81 +352,55 @@ par(mfrow = c(2, 2))
 plot(model, pch = 20, las = 1)
 ```
 
-<!-- Como resultado do teste, obteve-se uma estatística F = 34,45 e um p-valor < 2e-16. -->
 
-<!-- Diante do resultado do teste ANOVA, podemos rejeitar, com nível de significância $\alpha = 0,05$, a hipótese nula de que as médias de retorno das cinco ações são iguais. -->
+### 5. Verificação das Premissas do Modelo
 
-<!-- Esse resultado indica que nem todas as ações têm retornos médios semelhantes e, para identificar quais ações possuem maior retorno médio, realizamos um teste de Tukey. Os resultados do teste de Turkey são mostrados na Figura @ref{fig:turkey}. -->
+#### 5.1 Normalidade
+
+```{r shapiro,fig.width=8,echo=TRUE,message=FALSE, fig.cap = "Teste de Shapiro-Wilk"}
+# Check normality
+shapiro.test(model$residuals)
+
+library(car)
+# png(filename = "../figs/qqplot.png",
+#     width = 600, height = 600,
+#     bg = "transparent")
+
+qqPlot(retornos_melt,
+       pch = 16,
+       lwd = 3,
+       cex = 2,
+       las = 1)
+# dev.off()
+
+```
+
+#### 5.2 Homoscedasticidade
+
+Igualdade das variâncias
+
+```{r homoscedasticity,fig.width=8,echo=TRUE,message=FALSE, fig.cap = "Teste de Shapiro-Wilk"}
+fligner.test(Acuracia_Media ~ interaction(Algoritmo, Percentual_Ruido_Treinamento), 
+             data = aggdata)
+```
+
+```
+# png(filename = "../figs/papervar.png",
+#     width = 600, height = 600,
+#     bg = "transparent")
+plot(x    = my.model$fitted.values,
+     y    = my.model$residuals,
+     cex  = 2,
+     las  = 1,
+     pch  = 16,
+     xlab = "Fitted values",
+     ylab = "Residuals")
+grid(nx = NULL, ny = NULL,
+     lwd = 2, col = "#44444422")
+# dev.off()
+```
 
 
-<!-- ```{r turkey,results='hold',fig.width=8,echo=TRUE,message=FALSE,fig.cap="Comparações múltiplas - Turkey"} -->
-<!-- # Comparações múltiplas -->
-<!-- library(multcomp) -->
-
-<!-- mc1    <- glht(model, -->
-<!--                linfct = mcp(Acoes = "Tukey")) -->
-<!-- summary(mc1) -->
-<!-- mc1_CI <- confint(mc1, level = 0.95) -->
-
-<!-- par(mar = c(5, 10, 4, 2)) # margens -->
-<!-- plot(mc1_CI, -->
-<!--      xlab       = "Retornos", -->
-<!--      cex.axis   = 1.2, -->
-<!--      cex        = 2, -->
-<!--      main = "Comparações Múltiplas - Tukey") -->
-<!-- ``` -->
-
-<!-- As comparações mais significativas são entre a Ação 2 e as Ações 1, 3, 4 e 5, todas com p-valor < 0,001, indicando que essas ações têm médias de retorno significativamente diferentes. As Ações 1, 3, 4 e 5, por sua vez, apresentam pelo menos uma diferença não significativa quando comparadas entre si. -->
-
-Confirmando a suspeita inicial, o teste de Tukey indica que a Ação 2 tem o maior retorno médio entre as ações analisadas, visto que as comparações entre a Ação 2 e as outras ações todas mostram diferenças significativas.
-
-<!-- ### 5. Verificação das Premissas do Modelo -->
-<!-- The assumptions of your test should also be validated, and possible effects of violations should also be explored. -->
-<!-- ```{r shapiro,fig.width=8,echo=TRUE,message=FALSE, fig.cap = "Teste de Shapiro-Wilk"} -->
-<!-- # Check normality -->
-<!-- shapiro.test(retornos_melt) -->
-
-<!-- library(car) -->
-<!-- # png(filename = "../figs/paperqq.png", -->
-<!-- #     width = 600, height = 600,  -->
-<!-- #     bg = "transparent") -->
-
-<!-- qqPlot(retornos_melt,  -->
-<!--        pch = 16,  -->
-<!--        lwd = 3,  -->
-<!--        cex = 2,  -->
-<!--        las = 1) -->
-<!-- # dev.off() -->
-
-<!-- ``` -->
-
-<!-- # Check homoscedasticity -->
-<!-- fligner.test(Retorno ~ Acoes, -->
-<!--              data = retornos_melt) -->
-
-<!-- # png(filename = "../figs/papervar.png", -->
-<!-- #     width = 600, height = 600,  -->
-<!-- #     bg = "transparent") -->
-<!-- plot(x    = my.model$fitted.values, -->
-<!--      y    = my.model$residuals, -->
-<!--      cex  = 2, -->
-<!--      las  = 1, -->
-<!--      pch  = 16, -->
-<!--      xlab = "Fitted values", -->
-<!--      ylab = "Residuals") -->
-<!-- grid(nx = NULL, ny = NULL,  -->
-<!--      lwd = 2, col = "#44444422") -->
-<!-- # dev.off() -->
-<!-- ``` -->
-
-<!-- ### 6. Conclusões e Recomendações -->
-<!-- The discussion of your results, and the scientific/technical meaning of the effects detected, should be placed here. Always be sure to tie your results back to the original question of interest! -->
-
-<!-- ### 7. Atividades Específicas -->
-
-<!-- - Ana Julia: Design do experimento, análise estatística, análise exploratória e descrição do conjunto de dados (redação e código)  -->
-<!-- - Antônio:  -->
-<!-- - Melchior: -->
 
 ### 8. Referências
 
