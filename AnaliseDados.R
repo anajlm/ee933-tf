@@ -2,13 +2,18 @@
 library(dplyr)
 library(readr)
 library(stringr)
+library(ggplot2)
 
+
+#rm(list = ls())
+# Leitua Inicial dos arquivos ##################################################
 # Definir o diretório onde os arquivos estão localizados
 diretorio <- "resultados/"  # Substitua pelo caminho correto
 
 # Listar todos os arquivos CSV no diretório
 file <- read.csv("resultados/Experimento_Breast_piloto.csv",
                      header=TRUE, stringsAsFactors=FALSE)
+
 
 niveisDeRuido=unique(file$Noise.Level)
 algoritmos=unique(file$Classifier)
@@ -21,65 +26,87 @@ df_summary <- file %>%
 # View the summary
 print(df_summary)
 
-
-# Função para extrair o nome do algoritmo do nome do arquivo
-extrair_algoritmo <- function(file) {
-  # Remove o caminho e mantém apenas o nome do arquivo
-  nome_limpo <- basename(nome_arquivo)
-  # Extrai o algoritmo baseado no padrão do nome do arquivo
-  algoritmo <- str_extract(nome_limpo, "MLP|RF|SVM|XGB")
-  return(algoritmo)
-}
-
-# Ler e combinar os arquivos em um único dataframe, adicionando a coluna "Algoritmo"
-dados <- lapply(arquivos, function(arquivo) {
-  df <- read.csv(arquivo)
-  df$Algoritmo <- extrair_algoritmo(arquivo)  # Adiciona a coluna Algoritmo
-  df <- df[, c("Algoritmo", setdiff(names(df), "Algoritmo"))]  # Reorganiza as colunas
-  return(df)
-}) %>%
-  bind_rows()
+file <- file %>% dplyr::select(Classifier, X, Accuracy, Noise.Level)%>% 
+  arrange(Classifier) 
+dadosArquivo <- file %>%rename(Algoritmo = Classifier,
+                               X = X,
+                               acuracia = Accuracy,
+                               percentualRuidoTreinamento = `Noise.Level`)
 
 # Verificar os dados carregados
-str(dados)
-head(dados)
+str(dadosArquivo)
+head(dadosArquivo)
+
+# Gráfico ##################################################
+# Transformar Percentual de Ruído em fator (se ainda não estiver)
+dadosArquivo$percentualRuidoTreinamento <- as.factor(dadosArquivo$percentualRuidoTreinamento)
+
+# Agregar os dados: média da acurácia por algoritmo e nível de ruído
+aggdata <- aggregate(x = dadosArquivo$acuracia, 
+                     by = list(Algoritmo = dadosArquivo$Algoritmo, 
+                               percentualRuidoTreinamento = dadosArquivo$percentualRuidoTreinamento), 
+                     FUN = mean)
+
+# Rename columns
+names(aggdata) <- c("Algoritmo", 
+                    "PercentualRuidoTreinamento",
+                    "Acuracia_Media")
+
+# Coerce categorical variables to factors
+for (i in 1:2){
+  aggdata[, i] <- as.factor(aggdata[, i])
+}
+
+#pdf("./figs/ggplot_piloto.pdf", width = 5, height = 5) # <-- uncomment to save plot
+
+# Gráfico de linhas para visualizar o impacto do ruído na acurácia
+p <- ggplot(aggdata, aes(x = PercentualRuidoTreinamento, 
+                         y = Acuracia_Media, 
+                         group = Algoritmo, 
+                         colour = Algoritmo))
+p <- p + geom_line(linetype=2) + geom_point(size=5)
+p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
+         x = "Percentual de Ruído no Treinamento",
+         y = "Acurácia Média")
 
 
 
 # Calculo das repeticoes  ####################
 alpha <- 0.05 # nível de significância
 d <- 0.5
-a <- 4 # Niveis do fator
+a <- length(unique(aggdata$Algoritmo))  # Número de algoritmos
 n_max <- 100 # Número máximo de epetições por instância
 
 # Dataframe para armazenar os resultados
+# Criar dataframe para armazenar os resultados
 repeticoes <- data.frame(
-  Dimensao = integer(),
+  Algoritmo = character(),
   Repeticoes = integer(),
   Poder = numeric()
 )
 
-for (dim in dimensoes) {
-  # Calcula n para cada dimensão para atingir poder >= 0.8
+for (ruido in unique(aggdata$PercentualRuidoTreinamento)) {
+  # Calcula n para cada instância para atingir poder >= 0.8
   n <- 2
   power <- 0
-  sd <- estatisticas_piloto_df$DesvioPadrao[estatisticas_piloto_df$Dimensao == dim]
+  
+  # Obter desvio padrão da acurácia média nos algoritmos para esse nível de ruído
+  sd <- sd(aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido])
   
   while (power < 0.8)
   {
     df1 <- a - 1 # Graus de liberdade do numerador
     df2 <- a * (n - 1) # Graus de liberdade do denominador
     
-    # Calcula as médias observadas para a dimensão atual
-    mu_config1 <- mean(estudo_piloto$Fbest[estudo_piloto$Dimensao == dim &
-                                             estudo_piloto$Configuracao == "Config1"])
-    mu_config2 <- mean(estudo_piloto$Fbest[estudo_piloto$Dimensao == dim &
-                                             estudo_piloto$Configuracao == "Config2"])
-    # Média global
-    mu <- mean(c(mu_config1, mu_config2))
+    # Calcular a média da acurácia para cada algoritmo
+    mu_algoritmo <- tapply(aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido],
+                           unique(aggdata$Algoritmo), mean)
+    
+    # Média global da acurácia nesse nível de ruído
+    mu_global <- mean(mu_algoritmo)
     
     # Calcula o NCP
-    ncp <- (n*((mu_config1 - mu)^2 + (mu_config2 - mu)^2)) / (sd^2)
+    ncp <- (n * sum((mu_algoritmo - mu_global)^2)) / (sd^2)
     
     F.crit <- qf(alpha, df1, df2, lower.tail = FALSE)
     
@@ -90,10 +117,14 @@ for (dim in dimensoes) {
     } else {
       n = n + 1
     }
+    
+    # Armazenar resultados
+    repeticoes <- rbind(repeticoes, 
+                        data.frame(PercentualRuidoTreinamento = ruido, 
+                                   Repeticoes = n, 
+                                   Poder = power))
   }
   
-  # Armazena os resultados no dataframe
-  repeticoes <- rbind(repeticoes, data.frame(Dimensao = dim, Repeticoes = n, Poder = power))
   # Salvar resultados em um arquivo CSV
   write.csv(repeticoes, "repeticoes.csv", row.names = FALSE)
   
