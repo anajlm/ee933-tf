@@ -4,6 +4,8 @@ library(readr)
 library(stringr)
 library(ggplot2)
 
+#rm(list=ls())
+
 # Load data
 file <- read.csv("resultados/pilotos/estudo_piloto_3.csv",
                      header=TRUE)
@@ -182,14 +184,26 @@ p + labs( subtitle = "Desempenho dos Algoritmos por Nível de Ruído",
 
 model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
 summary(model)
-par(mfrow = c(2, 2))
-plot(model, pch = 20, las = 1)
+plot(model, which = 1,pch=16)  # Residuals vs Fitted
+plot(model, which = 2,pch=16)  # Q-Q Plot of Residuals
 
 shapiro.test(model$residuals)
 
 fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
              data = data)
+
 par(mfrow = c(1,1))
+png("figuras/experimento1_normalidadeResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
+par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
+plot(model, which = 2, main = "Residuals vs Fitted",pch=16)  # Residuals vs Fitted
+dev.off() 
+png("figuras/experimento1_varianciaResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
+par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
+plot(model, which = 1, main = "Residuals vs Fitted",pch=16)  # Residuals vs Fitted
+dev.off() 
+plot(model, which = 2, main = "Q-Q Plot of Residuals",pch=16)  # Q-Q Plot
+
+
 ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
   geom_boxplot() +
   facet_wrap(~ Algoritmo) +
@@ -312,6 +326,7 @@ shapiro.test(model$residuals)
 
 fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
              data = data)
+
 par(mfrow = c(1,1))
 ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
   geom_boxplot() +
