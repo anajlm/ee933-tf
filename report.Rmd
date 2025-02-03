@@ -198,7 +198,7 @@ p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
 alpha <- 0.05 # nível de significância
 d <- 0.5
 a <- length(unique(aggdata$Algoritmo))  # Número de algoritmos
-n_max <- 100 # Número máximo de epetições por instância
+n_max <- 10000 # Número máximo de epetições por instância
 
 # Dataframe para armazenar os resultados
 # Criar dataframe para armazenar os resultados
@@ -221,12 +221,14 @@ for (ruido in unique(aggdata$PercentualRuidoTreinamento)) {
     df1 <- a - 1 # Graus de liberdade do numerador
     df2 <- a * (n - 1) # Graus de liberdade do denominador
     
-    # Calcular a média da acurácia para cada algoritmo
-    mu_algoritmo <- tapply(aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido],
-                            aggdata$Algoritmo, mean)
-     
-    # Média global da acurácia nesse nível de ruído
-    mu_global <- mean(mu_algoritmo)
+    # Calcular a média da acurácia para cada algoritmo no nível de ruído atual
+    mu_rf  <- mean(dados$Acuracia[dados$PercentualRuidoTreinamento == ruido & dados$Algoritmo == "Random Forest"])
+    mu_svm <- mean(dados$Acuracia[dados$PercentualRuidoTreinamento == nivel & dados$Algoritmo == "SVM (RBF)"])
+    mu_xgb <- mean(dados$Acuracia[dados$PercentualRuidoTreinamento == nivel & dados$Algoritmo == "XGBoost"])
+    mu_mlp <- mean(dados$Acuracia[dados$PercentualRuidoTreinamento == nivel & dados$Algoritmo == "MLP"])
+  
+    # Média global considerando os quatro classificadores
+    mu_global <- mean(c(mu_rf, mu_svm, mu_xgb, mu_mlp), na.rm = TRUE)
 
     # Calcula o NCP
     ncp <- (n * sum((mu_algoritmo - mu_global)^2)) / (sd^2)

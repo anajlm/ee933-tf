@@ -4,7 +4,7 @@ library(readr)
 library(stringr)
 library(ggplot2)
 
-
+# Load data
 file <- read.csv("estudo_piloto/resultados/estudo_piloto.csv",
                      header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
@@ -41,17 +41,34 @@ p <- ggplot(aggdata, aes(x = PercentualRuidoTreinamento,
                          group = Algoritmo, 
                          colour = Algoritmo))
 p <- p + geom_line(linetype=2) + geom_point(size=5)
-p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
+p <- p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
          x = "Percentual de Ruído no Treinamento",
          y = "Acurácia Média")
+print(p)
 
+# Calculo dos blocos  ####################
+d = 0.5        # Mínima diferença de importância prática (padronizada)
+alpha <- 0.05  # Nível de significância
+p <- 1 - alpha # Nível de confiança
 
+n <- 2
+power <- 0
+while (power < 0.8)
+{
+  df <- n - 1         # n - 1 graus de liberdade
+  ncp <- d * sqrt(n)  # Non-centrality parameter
+  
+  power <- pt(qt(p,df), df, ncp=ncp, lower.tail=FALSE)
+  n <- n + 1
+}
+n
+power
 
 # Calculo das repeticoes  ####################
 alpha <- 0.05 # nível de significância
 d <- 0.5
 a <- length(unique(aggdata$Algoritmo))  # Número de algoritmos
-n_max <- 100 # Número máximo de epetições por instância
+n_max <- 1000 # Número máximo de epetições por instância
 
 # Dataframe para armazenar os resultados
 # Criar dataframe para armazenar os resultados
@@ -74,34 +91,46 @@ for (ruido in unique(aggdata$PercentualRuidoTreinamento)) {
     df1 <- a - 1 # Graus de liberdade do numerador
     df2 <- a * (n - 1) # Graus de liberdade do denominador
     
-    # Calcular a média da acurácia para cada algoritmo
-    mu_algoritmo <- tapply(aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido],
-                           unique(aggdata$Algoritmo), mean)
+    # Calcular a média da acurácia para cada algoritmo no nível de ruído atual
+    mu_rf  <- aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido & aggdata$Algoritmo == "Random Forest"]
+    mu_svm <- aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido & aggdata$Algoritmo == "SVM (RBF)"]
+    mu_xgb <- aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido & aggdata$Algoritmo == "XGBoost"]
+    mu_mlp <- aggdata$Acuracia_Media[aggdata$PercentualRuidoTreinamento == ruido & aggdata$Algoritmo == "MLP"]
     
-    # Média global da acurácia nesse nível de ruído
-    mu_global <- mean(mu_algoritmo)
+    # Média global considerando os quatro classificadores
+    mu <- mean(c(mu_rf, mu_svm, mu_xgb, mu_mlp))
     
     # Calcula o NCP
-    ncp <- (n * sum((mu_algoritmo - mu_global)^2)) / (sd^2)
+    ncp <- (n*((mu_rf - mu)^2 + (mu_svm - mu)^2 + (mu_xgb - mu)^2 + (mu_mlp - mu)^2)) / (sd^2)
     
     F.crit <- qf(alpha, df1, df2, lower.tail = FALSE)
     
     power <- pf(F.crit, df1, df2, ncp, lower.tail = FALSE)
-    
+
     if (n >= n_max) {
       break
     } else {
       n = n + 1
     }
-    
-    # Armazenar resultados
-    repeticoes <- rbind(repeticoes, 
-                        data.frame(PercentualRuidoTreinamento = ruido, 
-                                   Repeticoes = n, 
-                                   Poder = power))
+
   }
   
+  # Armazenar resultados
+  repeticoes <- rbind(repeticoes, 
+                      data.frame(PercentualRuidoTreinamento = ruido, 
+                                 Repeticoes = n, 
+                                 Poder = power))
   # Salvar resultados em um arquivo CSV
   write.csv(repeticoes, "repeticoes.csv", row.names = FALSE)
   
 }
+
+model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
+summary(model)
+par(mfrow = c(2, 2))
+plot(model, pch = 20, las = 1)
+
+shapiro.test(model$residuals)
+
+fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
+             data = data)
