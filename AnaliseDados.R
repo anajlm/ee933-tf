@@ -105,3 +105,200 @@ for (ruido in unique(aggdata$PercentualRuidoTreinamento)) {
   write.csv(repeticoes, "repeticoes.csv", row.names = FALSE)
   
 }
+
+# Análise Estatística ######################################
+model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
+summary(model)
+par(mfrow = c(2, 2))
+plot(model, pch = 20, las = 1)
+
+shapiro.test(model$residuals)
+
+fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
+             data = data)
+
+
+
+# Experimento 1 ###########################
+file <- read.csv("estudo_piloto/resultados/resultadosExperimento1.csv",
+                 header=TRUE)
+data <- file %>%rename(Algoritmo = Classifier,
+                       X = X,
+                       acuracia = Accuracy,
+                       percentualRuidoTreinamento = `Noise.Level`)
+head(data)
+data$percentualRuidoTreinamento <- round(data$percentualRuidoTreinamento,2)
+data$percentualRuidoTreinamento <- as.factor(data$percentualRuidoTreinamento)
+unique(data$percentualRuidoTreinamento)
+# Agregar os dados: média da acurácia por algoritmo e nível de ruído
+aggdata <- aggregate(x = data$acuracia, 
+                     by = list(Algoritmo = data$Algoritmo, 
+                               percentualRuidoTreinamento = data$percentualRuidoTreinamento), 
+                     FUN = mean)
+
+# Rename columns
+names(aggdata) <- c("Algoritmo", 
+                    "PercentualRuidoTreinamento",
+                    "Acuracia_Media")
+# Coerce categorical variables to factors
+for (i in 1:2){
+  aggdata[, i] <- as.factor(aggdata[, i])
+}
+
+
+#pdf("./figs/ggplot_piloto.pdf", width = 5, height = 5) # <-- uncomment to save plot
+
+# Gráfico de linhas para visualizar o impacto do ruído na acurácia
+p <- ggplot(aggdata, aes(x = PercentualRuidoTreinamento, 
+                         y = Acuracia_Media, 
+                         group = Algoritmo, 
+                         colour = Algoritmo))
+p <- p + geom_line(linetype=2) + geom_point(size=5)
+p + labs( subtitle = "Desempenho dos Algoritmos por Nível de Ruído",
+          title = "Experimento 1",
+         x = "Percentual de Ruído no Treinamento",
+         y = "Acurácia Média")
+
+## Experimento 1 - Analise estatistica ####
+
+model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
+summary(model)
+par(mfrow = c(2, 2))
+plot(model, pch = 20, las = 1)
+
+shapiro.test(model$residuals)
+
+fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
+             data = data)
+par(mfrow = c(1,1))
+ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
+  geom_boxplot() +
+  facet_wrap(~ Algoritmo) +
+  theme_minimal() +
+  labs(title = "Experimento 1",
+       subtitle = "Accuracy Distribution by LevelNoise and Algorithm",
+       x = "Level of Noise", y = "Accuracy") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+# Experimento 2 ###########################
+file <- read.csv("estudo_piloto/resultados/resultadosExperimento2.csv",
+                 header=TRUE)
+data <- file %>%rename(Algoritmo = Classifier,
+                       X = X,
+                       acuracia = Accuracy,
+                       percentualRuidoTreinamento = `Noise.Level`)
+head(data)
+data$percentualRuidoTreinamento <- round(data$percentualRuidoTreinamento,2)
+data$percentualRuidoTreinamento <- as.factor(data$percentualRuidoTreinamento)
+unique(data$percentualRuidoTreinamento)
+# Agregar os dados: média da acurácia por algoritmo e nível de ruído
+aggdata <- aggregate(x = data$acuracia, 
+                     by = list(Algoritmo = data$Algoritmo, 
+                               percentualRuidoTreinamento = data$percentualRuidoTreinamento), 
+                     FUN = mean)
+
+# Rename columns
+names(aggdata) <- c("Algoritmo", 
+                    "PercentualRuidoTreinamento",
+                    "Acuracia_Media")
+# Coerce categorical variables to factors
+for (i in 1:2){
+  aggdata[, i] <- as.factor(aggdata[, i])
+}
+
+
+#pdf("./figs/ggplot_piloto.pdf", width = 5, height = 5) # <-- uncomment to save plot
+
+# Gráfico de linhas para visualizar o impacto do ruído na acurácia
+p <- ggplot(aggdata, aes(x = PercentualRuidoTreinamento, 
+                         y = Acuracia_Media, 
+                         group = Algoritmo, 
+                         colour = Algoritmo))
+p <- p + geom_line(linetype=2) + geom_point(size=5)
+p + labs( subtitle= "Desempenho dos Algoritmos por Nível de Ruído",
+          title= "Experimento 2",
+         x = "Percentual de Ruído no Treinamento",
+         y = "Acurácia Média")
+
+## Experimento 2 - Analise estatistica ####
+
+model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
+summary(model)
+par(mfrow = c(2, 2))
+plot(model, pch = 20, las = 1)
+
+shapiro.test(model$residuals)
+
+fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
+             data = data)
+par(mfrow = c(1,1))
+ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
+  geom_boxplot() +
+  facet_wrap(~ Algoritmo) +
+  theme_minimal() +
+  labs(title="Experimento 3",
+       subtitle = "Accuracy Distribution by LevelNoise and Algorithm",
+       x = "Level of Noise", y = "Accuracy") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Experimento 3 ###########################
+file <- read.csv("estudo_piloto/resultados/resultadosExperimento3.csv",
+                 header=TRUE)
+data <- file %>%rename(Algoritmo = Classifier,
+                       X = X,
+                       acuracia = Accuracy,
+                       percentualRuidoTreinamento = `Noise.Level`)
+head(data)
+data$percentualRuidoTreinamento <- round(data$percentualRuidoTreinamento,2)
+data$percentualRuidoTreinamento <- as.factor(data$percentualRuidoTreinamento)
+unique(data$percentualRuidoTreinamento)
+# Agregar os dados: média da acurácia por algoritmo e nível de ruído
+aggdata <- aggregate(x = data$acuracia, 
+                     by = list(Algoritmo = data$Algoritmo, 
+                               percentualRuidoTreinamento = data$percentualRuidoTreinamento), 
+                     FUN = mean)
+
+# Rename columns
+names(aggdata) <- c("Algoritmo", 
+                    "PercentualRuidoTreinamento",
+                    "Acuracia_Media")
+# Coerce categorical variables to factors
+for (i in 1:2){
+  aggdata[, i] <- as.factor(aggdata[, i])
+}
+
+
+#pdf("./figs/ggplot_piloto.pdf", width = 5, height = 5) # <-- uncomment to save plot
+
+# Gráfico de linhas para visualizar o impacto do ruído na acurácia
+p <- ggplot(aggdata, aes(x = PercentualRuidoTreinamento, 
+                         y = Acuracia_Media, 
+                         group = Algoritmo, 
+                         colour = Algoritmo))
+p <- p + geom_line(linetype=2) + geom_point(size=5)
+p + labs( subtitle= "Desempenho dos Algoritmos por Nível de Ruído",
+          title= "Experimento 3",
+          x = "Percentual de Ruído no Treinamento",
+          y = "Acurácia Média")
+
+## Experimento 2 - Analise estatistica ####
+
+model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
+summary(model)
+par(mfrow = c(2, 2))
+plot(model, pch = 20, las = 1)
+
+shapiro.test(model$residuals)
+
+fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
+             data = data)
+par(mfrow = c(1,1))
+ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
+  geom_boxplot() +
+  facet_wrap(~ Algoritmo) +
+  theme_minimal() +
+  labs(title="Experimento 3",
+       subtitle = "Accuracy Distribution by LevelNoise and Algorithm",
+       x = "Level of Noise", y = "Accuracy") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
