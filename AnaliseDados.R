@@ -5,8 +5,10 @@ library(stringr)
 library(ggplot2)
 
 # Load data
-file <- read.csv("resultados/pilotos/estudo_piloto_3.csv",
-                     header=TRUE)
+
+
+file <- read.csv("pilotos e teste/estudo_piloto.csv", header=TRUE)
+#file <- read.csv("resultados/pilotos/estudo_piloto_3.csv", header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
                        X = X,
                        acuracia = Accuracy,
@@ -43,8 +45,9 @@ p <- ggplot(aggdata, aes(x = PercentualRuidoTreinamento,
 p <- p + geom_line(linetype=2) + geom_point(size=5)
 p <- p + labs(title = "Desempenho dos Algoritmos por Nível de Ruído",
          x = "Percentual de Ruído no Treinamento",
-         y = "Acurácia Média")
+         y = "Acurácia Média") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 print(p)
+
 
 # Calculo dos blocos  ####################
 d = 0.5        # Mínima diferença de importância prática (padronizada)
@@ -68,7 +71,7 @@ power
 alpha <- 0.05 # nível de significância
 d <- 0.5
 a <- length(unique(aggdata$Algoritmo))  # Número de algoritmos
-n_max <- 1000 # Número máximo de epetições por instância
+n_max <- 1000 # Número máximo de repetições por instância
 
 # Dataframe para armazenar os resultados
 # Criar dataframe para armazenar os resultados
@@ -321,3 +324,54 @@ ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Al
        subtitle = "Accuracy Distribution by LevelNoise and Algorithm",
        x = "Level of Noise", y = "Accuracy") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+# Carregar pacotes necessários
+library(dplyr)
+
+df <- read.csv("pilotos e teste/estudo_piloto.csv", header=TRUE)
+
+# Definir parâmetros do experimento
+alpha <- 0.05  # Nível de significância
+power <- 0.8   # Poder do teste (1 - beta)
+d_min <- 0.02  # Diferença mínima detectável (exemplo: 2% na acurácia)
+
+# Contar número de classificadores (fatores) e blocos (níveis de ruído)
+num_classifiers <- length(unique(df$Classifier))
+num_blocks <- length(unique(df$Noise.Level))
+
+# Média global da acurácia
+X_global <- mean(df$Accuracy)
+
+# Média por bloco (nível de ruído)
+mean_per_block <- df %>%
+  group_by(Noise.Level) %>%
+  summarise(mean_acc = mean(Accuracy))
+
+# Variância entre blocos (S^2_b)
+S2_b <- num_classifiers * sum((mean_per_block$mean_acc - X_global)^2) / (num_blocks - 1)
+
+# Variância dentro dos blocos (S^2_w)
+S2_w <- df %>%
+  group_by(Noise.Level) %>%
+  summarise(SSE = sum((Accuracy - mean(Accuracy))^2)) %>%
+  summarise(S2_w = sum(SSE) / (num_classifiers * (num_blocks - 1))) %>%
+  pull(S2_w)
+
+# Graus de liberdade
+df1 <- num_classifiers - 1
+df2 <- (num_classifiers - 1) * (num_blocks - 1)
+
+# Obter o valor crítico da distribuição F
+F_critical <- qf(1 - alpha, df1, df2)
+
+# Calcular o número necessário de repetições por bloco
+r <- (S2_b / S2_w) * ((df1 * F_critical) / (d_min^2))
+
+# Arredondar para um número inteiro
+r <- ceiling(r)
+
+# Exibir os resultados
+print(paste("Variância entre blocos (S^2_b):", S2_b))
+print(paste("Variância dentro dos blocos (S^2_w):", S2_w))
+print(paste("Número de repetições por bloco necessário:", r))
