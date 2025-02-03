@@ -5,7 +5,7 @@ library(stringr)
 library(ggplot2)
 
 # Load data
-file <- read.csv("estudo_piloto/resultados/estudo_piloto.csv",
+file <- read.csv("resultados/pilotos/estudo_piloto_3.csv",
                      header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
                        X = X,
@@ -139,7 +139,7 @@ fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento),
 
 
 # Experimento 1 ###########################
-file <- read.csv("estudo_piloto/resultados/resultadosExperimento1.csv",
+file <- read.csv("resultados/experimento/resultadosExperimento1.csv",
                  header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
                        X = X,
@@ -201,7 +201,7 @@ ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Al
 
 
 # Experimento 2 ###########################
-file <- read.csv("estudo_piloto/resultados/resultadosExperimento2.csv",
+file <- read.csv("resultados/experimento/resultadosExperimento2.csv",
                  header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
                        X = X,
@@ -262,7 +262,7 @@ ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Al
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 # Experimento 3 ###########################
-file <- read.csv("estudo_piloto/resultados/resultadosExperimento3.csv",
+file <- read.csv("resultados/experimento/resultadosExperimento3.csv",
                  header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
                        X = X,
@@ -301,7 +301,7 @@ p + labs( subtitle= "Desempenho dos Algoritmos por Nível de Ruído",
           x = "Percentual de Ruído no Treinamento",
           y = "Acurácia Média")
 
-## Experimento 2 - Analise estatistica ####
+## Experimento 3 - Analise estatistica ####
 
 model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
 summary(model)
