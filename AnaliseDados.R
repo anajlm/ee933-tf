@@ -3,6 +3,8 @@ library(dplyr)
 library(readr)
 library(stringr)
 library(ggplot2)
+library(multcomp)
+library(xtable)
 
 #rm(list=ls())
 
@@ -180,10 +182,16 @@ p + labs( subtitle = "Desempenho dos Algoritmos por Nível de Ruído",
          x = "Percentual de Ruído no Treinamento",
          y = "Acurácia Média")
 
-## Experimento 1 - Analise estatistica ####
+## Experimento 1 - Analise estatistica #########################################
 
 model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
 summary(model)
+# Convert to LaTeX
+latex_table <- xtable(model)
+
+# Print LaTeX code
+print(latex_table, type = "latex")
+
 plot(model, which = 1,pch=16)  # Residuals vs Fitted
 plot(model, which = 2,pch=16)  # Q-Q Plot of Residuals
 
@@ -195,13 +203,12 @@ fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento),
 par(mfrow = c(1,1))
 png("figuras/experimento1_normalidadeResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
 par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
-plot(model, which = 2, main = "Residuals vs Fitted",pch=16)  # Residuals vs Fitted
+plot(model, which = 2, main="Experimento 1: Q-Q Plot of Residuals",pch=16)  # Residuals vs Fitted
 dev.off() 
 png("figuras/experimento1_varianciaResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
 par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
-plot(model, which = 1, main = "Residuals vs Fitted",pch=16)  # Residuals vs Fitted
+plot(model, which = 1, main = "Experimento 1: Residuals vs Fitted",pch=16)  # Residuals vs Fitted
 dev.off() 
-plot(model, which = 2, main = "Q-Q Plot of Residuals",pch=16)  # Q-Q Plot
 
 
 ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
@@ -213,8 +220,28 @@ ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Al
        x = "Level of Noise", y = "Accuracy") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
+### Experimento 1 - Comparação Múltipla #########################################
+# Situation 1: all vs. all
+mc1    <- glht(model, 
+               linfct = mcp(Algoritmo = "Tukey"))
+mc1_CI <- confint(mc1, level = 0.95)
 
-# Experimento 2 ###########################
+ png(filename = "figuras/tukey_experimento1.png",
+     width = 900, height = 600)
+par(cex.main = 1.5, cex.lab = 1.5, cex.axis = 2)  # Reset text sizes to default
+par(mar = c(5, 15, 4, 2))  # Adjust margins: bottom, left, top, right
+plot(mc1_CI, 
+     xlab       = "Diferença de Acurácia (%)",
+     sub        = "Breast Cancer",
+     cex.axis   = 1.2,
+     main="Experimento 1: Comparação Múltipla da Acurácia Média",
+     cex        = 2)
+title("Intervalo de confiança de 95%", line = 0.5, cex.main=1)
+
+dev.off()
+summary(mc1)
+
+# Experimento 2 ####################################################################
 file <- read.csv("resultados/experimento/resultadosExperimento2.csv",
                  header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
@@ -254,10 +281,20 @@ p + labs( subtitle= "Desempenho dos Algoritmos por Nível de Ruído",
          x = "Percentual de Ruído no Treinamento",
          y = "Acurácia Média")
 
+
+
+
 ## Experimento 2 - Analise estatistica ####
 
 model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
 summary(model)
+
+# Convert to LaTeX
+latex_table <- xtable(model)
+
+# Print LaTeX code
+print(latex_table, type = "latex")
+
 par(mfrow = c(2, 2))
 plot(model, pch = 20, las = 1)
 
@@ -265,6 +302,18 @@ shapiro.test(model$residuals)
 
 fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
              data = data)
+
+par(mfrow = c(1,1))
+png("figuras/experimento2_normalidadeResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
+par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
+plot(model, which = 2, main="Experimento 2: Q-Q Plot of Residuals",pch=16)  # Residuals vs Fitted
+dev.off() 
+png("figuras/experimento2_varianciaResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
+par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
+plot(model, which = 1, main = "Experimento 2: Residuals vs Fitted",pch=16)  # Residuals vs Fitted
+dev.off() 
+
+
 par(mfrow = c(1,1))
 ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
   geom_boxplot() +
@@ -275,7 +324,7 @@ ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Al
        x = "Level of Noise", y = "Accuracy") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-# Experimento 3 ###########################
+# Experimento 3 #################################################################################
 file <- read.csv("resultados/experimento/resultadosExperimento3.csv",
                  header=TRUE)
 data <- file %>%rename(Algoritmo = Classifier,
@@ -319,6 +368,15 @@ p + labs( subtitle= "Desempenho dos Algoritmos por Nível de Ruído",
 
 model <- aov(Acuracia_Media ~ Algoritmo + PercentualRuidoTreinamento, data = aggdata)
 summary(model)
+
+# Convert to LaTeX
+latex_table <- xtable(model)
+
+# Print LaTeX code
+print(latex_table, type = "latex")
+
+
+
 par(mfrow = c(2, 2))
 plot(model, pch = 20, las = 1)
 
@@ -326,6 +384,18 @@ shapiro.test(model$residuals)
 
 fligner.test(acuracia ~ interaction(Algoritmo,percentualRuidoTreinamento), 
              data = data)
+
+par(mfrow = c(1,1))
+png("figuras/experimento3_normalidadeResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
+par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
+plot(model, which = 2, main = "Experimento 3: Q-Q Plot of Residuals",pch=16)  # Residuals vs Fitted
+dev.off() 
+png("figuras/experimento3_varianciaResiduos.png", width = 800, height = 600, res = 150)  # Save as PNG
+par(cex.main = 1.5, cex.lab = 1.3, cex.axis = 1.2)  # Increase text sizes
+plot(model, which = 1, main = "Experimento 3: Residuals vs Fitted",pch=16)  # Residuals vs Fitted
+dev.off() 
+
+
 
 par(mfrow = c(1,1))
 ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Algoritmo)) +
@@ -336,3 +406,24 @@ ggplot(data, aes(x = factor(percentualRuidoTreinamento), y = acuracia, fill = Al
        subtitle = "Accuracy Distribution by LevelNoise and Algorithm",
        x = "Level of Noise", y = "Accuracy") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+### Experimento 3 - Comparação Múltipla #########################################
+mc1    <- glht(model, 
+               linfct = mcp(Algoritmo = "Tukey"))
+mc1_CI <- confint(mc1, level = 0.95)
+
+png(filename = "figuras/tukey_experimento3.png",
+    width = 900, height = 600)
+par(cex.main = 1.5, cex.lab = 1.5, cex.axis = 2)  # Reset text sizes to default
+par(mar = c(5, 15, 4, 2))  # Adjust margins: bottom, left, top, right
+plot(mc1_CI, 
+     xlab       = "Diferença de Acurácia (%)",
+     sub        = "Breast Cancer",
+     cex.axis   = 1.2,
+     main="Experimento 3: Comparação Múltipla da Acurácia Média",
+     cex        = 2)
+title("Intervalo de confiança de 95%", line = 0.5, cex.main=1)
+
+dev.off()
+summary(mc1)
